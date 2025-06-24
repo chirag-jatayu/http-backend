@@ -78,4 +78,88 @@ const deleteVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Video deleted successfully"));
 });
 
-export { getAllVideos, publishAVideo, getVideoById, deleteVideo };
+const updateVideo = asyncHandler(async (req, res) => {
+
+  const { videoId, title, description } = req.body
+  if (!videoId || !title || !description) {
+    throw new ApiError(400, "Title and description fields are required");
+  }
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to delete this video");
+  }
+
+
+  const thumbnalLocalPath = req.file?.path
+  if (!thumbnalLocalPath) {
+    throw new ApiError(400, "thumbnail file is missing");
+  }
+  const thumbnail = await uploadOnCloudinary(thumbnalLocalPath);
+  if (!thumbnail.url) {
+    throw new ApiError(400, "Error while uploading on thumbnail");
+  }
+
+
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: {
+        title,
+        description,
+        thumbnail: thumbnail.url,
+      },
+    },
+    {
+      new: true, // returns the updated document
+      select: "-owner -duration -isPusblished -views", // optional: hide fields
+    }
+  );
+
+
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedVideo, "video details updated successfully"));
+
+
+
+
+})
+
+const togglePublishStatus = asyncHandler(async (req, res) => {
+  const { videoId } = req.params
+
+  if (!videoId) {
+    throw new ApiError(400, "Video ID is required");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  // Check ownership
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to update this video");
+  }
+
+
+  video.isPublished = !video.isPublished;
+
+
+
+  await video.save({ validateBeforeSave: false });
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, [], `Video is now ${video.isPublished ? "published" : "unpublished"}`)
+    );
+});
+
+
+
+export { getAllVideos, publishAVideo, getVideoById, deleteVideo, updateVideo, togglePublishStatus };
