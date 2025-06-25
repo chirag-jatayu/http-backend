@@ -54,6 +54,24 @@ const getVideoById = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
+
+  const user = await User
+    .findById(req.user._id)
+    .select("-password -refreshToken");
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  
+  const isVideoWatched=user.watchistory.some(
+    (videoId) => videoId.toString() === video._id.toString()
+  )
+  if(!isVideoWatched){{
+    user.watchistory.push(video._id);
+    await user.save({validateBeforeSave: false});
+    video.views +=1;
+    await video.save({validateBeforeSave: false});
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, video, "Video fetched successfully"));
