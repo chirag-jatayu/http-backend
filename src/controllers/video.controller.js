@@ -1,4 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { User } from "../models/user.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
@@ -55,21 +56,21 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  const user = await User
-    .findById(req.user._id)
-    .select("-password -refreshToken");
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
   if (!user) {
     throw new ApiError(404, "User not found");
   }
-  
-  const isVideoWatched=user.watchistory.some(
+
+  const isVideoWatched = user.watchistory.some(
     (videoId) => videoId.toString() === video._id.toString()
-  )
-  if(!isVideoWatched){{
+  );
+  if (!isVideoWatched) {
     user.watchistory.push(video._id);
-    await user.save({validateBeforeSave: false});
-    video.views +=1;
-    await video.save({validateBeforeSave: false});
+    await user.save({ validateBeforeSave: false });
+    video.views += 1;
+    await video.save({ validateBeforeSave: false });
   }
 
   return res
@@ -97,8 +98,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
-
-  const { videoId, title, description } = req.body
+  const { videoId, title, description } = req.body;
   if (!videoId || !title || !description) {
     throw new ApiError(400, "Title and description fields are required");
   }
@@ -111,8 +111,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized to delete this video");
   }
 
-
-  const thumbnalLocalPath = req.file?.path
+  const thumbnalLocalPath = req.file?.path;
   if (!thumbnalLocalPath) {
     throw new ApiError(400, "thumbnail file is missing");
   }
@@ -120,7 +119,6 @@ const updateVideo = asyncHandler(async (req, res) => {
   if (!thumbnail.url) {
     throw new ApiError(400, "Error while uploading on thumbnail");
   }
-
 
   const updatedVideo = await Video.findByIdAndUpdate(
     videoId,
@@ -137,19 +135,15 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
   );
 
-
-
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedVideo, "video details updated successfully"));
-
-
-
-
-})
+    .json(
+      new ApiResponse(200, updatedVideo, "video details updated successfully")
+    );
+});
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
-  const { videoId } = req.params
+  const { videoId } = req.params;
 
   if (!videoId) {
     throw new ApiError(400, "Video ID is required");
@@ -165,19 +159,25 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized to update this video");
   }
 
-
   video.isPublished = !video.isPublished;
-
-
 
   await video.save({ validateBeforeSave: false });
   return res
     .status(200)
     .json(
-      new ApiResponse(200, [], `Video is now ${video.isPublished ? "published" : "unpublished"}`)
+      new ApiResponse(
+        200,
+        [],
+        `Video is now ${video.isPublished ? "published" : "unpublished"}`
+      )
     );
 });
 
-
-
-export { getAllVideos, publishAVideo, getVideoById, deleteVideo, updateVideo, togglePublishStatus };
+export {
+  getAllVideos,
+  publishAVideo,
+  getVideoById,
+  deleteVideo,
+  updateVideo,
+  togglePublishStatus,
+};
