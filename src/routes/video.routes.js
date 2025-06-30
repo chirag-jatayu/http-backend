@@ -22,7 +22,7 @@ router.route("/publish-video").post(
   publishAVideo
 );
 router.route("/:videoId").get(getVideoById);
-router.route("/delete-video/:videoId").delete(deleteVideo)
-router.route("/update-video").patch(upload.single("thumbnail"), updateVideo)
-router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
+router.route("/delete-video/:videoId").delete(deleteVideo);
+router.route("/update-video").patch(upload.single("thumbnail"), updateVideo);
+router.route("/toggle-publish/:videoId").patch(togglePublishStatus);
 export default router;

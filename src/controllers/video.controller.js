@@ -4,8 +4,83 @@ import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, sortBy, sortType, userId } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortType = -1,
+    userId,
+  } = req.query;
+
+  const options = {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { [sortBy]: sortType },
+    customLabels: {
+      totalDocs: "totalItems",
+      docs: "videos",
+      limit: "perPage",
+      page: "currentPage",
+    },
+  };
+
+  const aggregationPipeline = [];
+
+  // ✅ Step 1: Optional filter if userId is present
+  if (userId) {
+    aggregationPipeline.push({
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    });
+  }
+
+  // Step 2: Select necessary fields
+  aggregationPipeline.push(
+    {
+      $project: {
+        title: 1,
+        thumbnail: 1,
+        views: 1,
+        isPusblished: 1,
+        createdAt: 1,
+        owner: 1,
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    {
+      $unwind: "$ownerDetails",
+    },
+    {
+      $addFields: {
+        uploader: {
+          username: "$ownerDetails.username",
+          avatar: "$ownerDetails.avatar",
+        },
+      },
+    },
+    {
+      $project: {
+        ownerDetails: 0,
+      },
+    }
+  );
+  const result = await Video.aggregatePaginate(
+    Video.aggregate(aggregationPipeline),
+    options
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Videos fetched successfully"));
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -50,7 +125,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   }
   const video = await Video.findById(videoId).populate(
     "owner",
-    "-password -refreshToken"
+    "-password -refreshToken -watchHistory"
   );
   if (!video) {
     throw new ApiError(404, "Video not found");
@@ -63,11 +138,11 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  const isVideoWatched = user.watchistory.some(
+  const isVideoWatched = user.watchHistory.some(
     (videoId) => videoId.toString() === video._id.toString()
   );
   if (!isVideoWatched) {
-    user.watchistory.push(video._id);
+    user.watchHistory.push(video._id);
     await user.save({ validateBeforeSave: false });
     video.views += 1;
     await video.save({ validateBeforeSave: false });
